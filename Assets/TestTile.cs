@@ -12,7 +12,7 @@ public class TestTile : MonoBehaviour
     public int x, y;
     public int tileType;
     public Vector2 vec2;
-    public int g, h, f;
+    public float g, h, f;
 
     public TestTile()
     {
