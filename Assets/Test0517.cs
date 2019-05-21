@@ -11,6 +11,7 @@ public class Test0517 : MonoBehaviour
     public int targetX, targetY;
     public Button btn;
     public Button btn2;
+    public GameObject character;
 
     private GameObject[] tilePrefabs;
     private GameObject[,] tiles;
@@ -41,6 +42,9 @@ public class Test0517 : MonoBehaviour
         this.CreateTiles();
         this.SetMotherNode(this.tiles[startX, startY]);
         this.SetOpenList();
+        this.OrderByList();
+        this.character.transform.position = this.motherNode.transform.position;
+
 
         this.btn.onClick.AddListener(() =>
         {
@@ -55,35 +59,21 @@ public class Test0517 : MonoBehaviour
             }
             else
             {
-                this.closeList.Add(this.openList.FirstOrDefault());
-                this.ResetOpenList();
-                this.SetMotherNode(this.openList.FirstOrDefault());
-                this.openList.Clear();
                 this.SetOpenList();
                 this.OrderByList();
+                this.closeList.Add(this.openList.FirstOrDefault());
+                this.ResetOpenList();
+                if (this.CheckWall(this.openList.FirstOrDefault()))
+                {
+                    this.SetMotherNode(openList.FirstOrDefault());
+                }
+                else
+                {
+                    this.SetMotherNode(openList[1]);
+                }
+                this.openList.Clear();
+                this.MoveCharacter();
             }
-            //else
-            //{
-            //    this.closeList.Add(this.openList.FirstOrDefault());
-            //    this.ResetOpenList();
-            //    var min = this.openList.OrderBy(x => x.GetComponent<TestTile>().f).ToList();
-            //    this.SetMotherNode(min.FirstOrDefault());
-            //    this.openList.Clear();
-
-
-            //    this.SetOpenList();
-            //    this.OrderByList();
-            //    this.SaveMoveCost();
-
-
-            //    if(this.CheckValueToOpenList())
-            //    {
-            //        Debug.Log("Mother node is change!!");
-            //        this.SetOpenList();
-            //        this.OrderByList();
-            //        this.SaveMoveCost();
-            //    }
-            //}
         });
 
         this.btn2.onClick.AddListener(() =>
@@ -99,37 +89,104 @@ public class Test0517 : MonoBehaviour
             }
             else
             {
-                this.ResetOpenList();
-                this.OrderByMin();
-                var orderList = this.minList.OrderBy(x => x.GetComponent<TestTile>().f);
-                this.SetMotherNode(orderList.FirstOrDefault());
-                this.openList.Clear();
-                this.SetOpenList();
-
-
-                //오픈리스트 / 닫힌리스트 / minList G최소값만 있는 리스트
-                //this.closeList.Add(this.minList.FirstOrDefault());
-                //this.ResetOpenList();
-                //var orderList = this.minList.OrderBy(x => x.GetComponent<TestTile>().f);
-                //this.SetMotherNode(orderList.FirstOrDefault());
-                //this.openList.Clear();
-                //this.SetOpenList();
-                //this.OrderByMin();
-                //foreach(var nodes in this.openList)
-                //{
-                //    Debug.Log(nodes.GetComponent<TestTile>().vec2);
-                //}
-                foreach (var nodes in this.openList)
+                bool tf = false;
+                foreach (var nodes in this.minList)
                 {
-                    if (nodes == this.targetNode && nodes.GetComponent<TestTile>().f == this.openList.FirstOrDefault().GetComponent<TestTile>().f)
+                    var list = this.minList.OrderBy(x => x.GetComponent<TestTile>().f);
+                    if (nodes.GetComponent<TestTile>().vec2 == this.targetNode.GetComponent<TestTile>().vec2 && nodes.GetComponent<TestTile>().f == list.FirstOrDefault().GetComponent<TestTile>().f)
                     {
+                        Debug.Log("if문에 들어왓음");
+                        this.SetMotherNode(this.targetNode);
                         this.motherNode = this.targetNode;
+                        this.motherNodes.Add(this.targetNode);
+                        tf = true;
                         break;
                     }
+                    tf = false;
                 }
+                if(tf == false)
+                {
+                    var orderList = this.minList.OrderBy(x => x.GetComponent<TestTile>().f).ToList();
+                    this.closeList.Add(orderList.FirstOrDefault());
+                    this.ResetOpenList();
+                    this.SetMotherNode(orderList.FirstOrDefault());
+                    this.openList.Clear();
+                    this.minList.Clear();
+                    this.MoveCharacter();
+
+                    this.SetOpenList();
+                    this.OrderByList();
+                    foreach (var item in this.minList)
+                    {
+                        Debug.LogFormat("<color=blue>minList item : {0} </color>", item.GetComponent<TestTile>().vec2);
+                    }
+                }
+
+                //this.openList = new List<GameObject>();
+                //this.minList = new List<GameObject>();
+
+
                 
             }
         });
+    }
+
+    private bool CheckWall(GameObject node)
+    {
+        var checkNode = node;
+        var x = checkNode.GetComponent<TestTile>().x;
+        var y = checkNode.GetComponent<TestTile>().y;
+
+        Debug.LogFormat("checkNode : {0}.{1}", x, y);
+
+        if(this.motherNode.GetComponent<TestTile>().x < x)
+        {
+            //타겟의 x-1 / y-1 검사
+            var targetNode1 = this.tiles[x - 1, y];
+            var targetNode2 = this.tiles[x, y - 1];
+            if(targetNode1.GetComponent<TestTile>().tileType == 1 || targetNode2.GetComponent<TestTile>().tileType == 1)
+            {
+                return false;
+            }
+        }
+        else if(this.motherNode.GetComponent<TestTile>().x > x)
+        { //4,3 -> 3,4  3,3 4,4
+            //타겟의 x+1 / y+1 검사
+            var targetNode1 = this.tiles[x + 1, y];
+            var targetNode2 = this.tiles[x, y + 1];
+            var targetNode3 = this.tiles[x, y - 1];
+            if(targetNode1.GetComponent<TestTile>().tileType == 1 || targetNode2.GetComponent<TestTile>().tileType == 1 || targetNode3.GetComponent<TestTile>().tileType == 1)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void MoveCharacter()
+    {
+        var anim = this.character.GetComponentInChildren<Animation>();
+        anim.Play("run@loop");
+        StartCoroutine(this.MoveCharacterImpl());
+    }
+
+    private IEnumerator MoveCharacterImpl()
+    {
+        var anim = this.character.GetComponentInChildren<Animation>();
+        var dir = (this.motherNode.transform.position - this.character.transform.position).normalized;
+        
+        while(true)
+        {
+            var dis = Vector3.Distance(this.character.transform.position, this.motherNode.transform.position);
+            this.character.transform.position += (dir * 0.1f);
+            yield return null;
+            if(dis <= 0.1f)
+            {
+                this.character.transform.position = this.motherNode.transform.position;
+                anim.Play("idle@loop");
+                break;
+            }
+        }
     }
 
     private bool CheckValueToOpenList()
@@ -173,7 +230,8 @@ public class Test0517 : MonoBehaviour
         int index = 0;
         foreach (var tile in list)
         {
-            if (tile.GetComponent<TestTile>().g == list.FirstOrDefault().GetComponent<TestTile>().g)
+            Debug.LogFormat("{0} vs {1}", tile.GetComponent<TestTile>().g, list.FirstOrDefault().GetComponent<TestTile>().g);
+            if (tile.GetComponent<TestTile>().g == list.FirstOrDefault().GetComponent<TestTile>().g && tile != this.motherNode)
             {
                 this.minList.Add(list[index]);
             }
@@ -183,17 +241,6 @@ public class Test0517 : MonoBehaviour
 
     #endregion
 
-    private void FindPath(GameObject target)
-    {
-        this.FindNodes();
-    }
-
-    private void FindNodes()
-    {
-        this.SetMotherNode(this.tiles[startX, startY]);
-        this.SetOpenList();
-        this.OrderByList();
-    }
 
     private void ResetOpenList()
     {
@@ -245,7 +292,7 @@ public class Test0517 : MonoBehaviour
         this.motherNode = mother;
         this.motherNodes.Add(this.motherNode);
         this.motherNode.GetComponent<TestTile>().tileType = 2;
-        Debug.LogFormat("Mother node : {0}", this.motherNode.GetComponent<TestTile>().f);
+        Debug.LogFormat("Mother node : {0}", this.motherNode.GetComponent<TestTile>().vec2);
         var sprite = this.motherNode.GetComponentInChildren<SpriteRenderer>();
         sprite.color = Color.gray;
     }
